@@ -31,8 +31,8 @@ FIND_PACKAGE(ITK REQUIRED)
 INCLUDE(${ITK_USE_FILE})
 
 # Depending of the ITK version add -fpermissive. Delete when no longer needed
-if (${ITK_VERSION} VERSION_LESS "4.9" )
-	message(STATUS "ITK < 4.9 found, (version ${ITK_VERSION}), adding -fpermissive")
+if (${ITK_VERSION} VERSION_LESS "4.9" AND "${CMAKE_SYSTEM_NAME}" MATCHES "Linux")
+	message(STATUS "ITK < 4.9, (version ${ITK_VERSION}) on Linux found, adding -fpermissive")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 endif()
 
