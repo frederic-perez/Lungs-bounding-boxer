@@ -1,6 +1,7 @@
 // --
 
 #include <iostream>
+#include <limits>
 #include <string>
 
 #include "aux-raw-compiler-warnings-off++begin.h"
@@ -19,21 +20,22 @@
 #include "aux-raw-compiler-warnings-off++end.h"
 
 using ImageCT = itk::Image<double, 3>;
-using ImageLabels = itk::Image<unsigned char, 3>;
+using ImageBinary = itk::Image<unsigned char,3>;
+using ImageLabels = itk::Image<size_t, 3>;
 
 bool
-FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
+FindLungs(const ImageCT& a_imgCT, ImageBinary::Pointer& a_imgLabels)
 {
 	// Thresholding the input image
 	//
 	std::clog << __func__ << ": Thresholding the input image..." << std::endl;
 
 	using BinaryThresholdType =
-		itk::BinaryThresholdImageFilter<ImageCT, ImageLabels>;
+		itk::BinaryThresholdImageFilter<ImageCT, ImageBinary>;
 	BinaryThresholdType::Pointer thresholdFilter = BinaryThresholdType::New();
 
 	thresholdFilter->SetInput(&a_imgCT);
-	const ImageCT::ValueType lowerThreshold = -900.;
+	const ImageCT::ValueType lowerThreshold = -1000.;
 	const ImageCT::ValueType upperThreshold = -400.;
 	thresholdFilter->SetUpperThreshold(upperThreshold);
 	thresholdFilter->SetLowerThreshold(lowerThreshold);
@@ -45,10 +47,11 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 	try {
 		thresholdFilter->Update();
 	}	catch (itk::ExceptionObject& e) {
-		std::cerr << __func__ 
+		std::cerr << __func__
 			<< ": thresholdFilter->Update: ITK Exception caught: " << e << std::endl;
 		return false;
 	}
+
 
 	// Remove small blobs
 	//
@@ -58,7 +61,7 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 	using LabelMap3DType = itk::LabelMap<LabelObj3DType>;
 
 	using ShapeLabelFilter =
-		itk::BinaryImageToShapeLabelMapFilter<ImageLabels, LabelMap3DType>;
+		itk::BinaryImageToShapeLabelMapFilter<ImageBinary, LabelMap3DType>;
 	ShapeLabelFilter::Pointer featureExtractor = ShapeLabelFilter::New();
 	featureExtractor->SetInput(thresholdFilter->GetOutput());
 	featureExtractor->SetInputForegroundValue(foregroundValue);
@@ -79,10 +82,10 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 
 	// Remove labels with volume smaller than lambda ml
 	//
-	const double lambda = 400.;
-	std::clog << __func__ 
+	const double lambda = 200000.;
+	std::clog << __func__
 		<< ": Removing labels with volume smaller than lambda (" << lambda
-		<< ") ml..." << std::endl;
+		<< ") mm^3..." << std::endl;
 
 	using LabelSelector = itk::ShapeOpeningLabelMapFilter<LabelMap3DType>;
 	LabelSelector::Pointer filterLowVolume = LabelSelector::New();
@@ -102,6 +105,29 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 	std::clog << __func__ << ": #labels after small blobs removal: "
 		<< numLabels << std::endl;
 
+#undef _LABEL_DEBUGGING_
+#ifdef _LABEL_DEBUGGING_
+	using ImageWriterLabels = itk::ImageFileWriter<ImageLabels>;
+	if (numLabels < std::numeric_limits<ImageWriterLabels::InputImagePixelType>::max()) {
+		std::clog << __func__
+			<< ": Writting Intermediate Label Image" << std::endl;
+		using LabelMap2LabelImage = itk::LabelMapToLabelImageFilter<LabelMap3DType, ImageLabels>;
+		LabelMap2LabelImage::Pointer labelMapToLabelImageFilter = LabelMap2LabelImage::New();
+		labelMapToLabelImageFilter->SetInput(filterLowVolume->GetOutput());
+		//labelMapToLabelImageFilter->Update();
+		ImageWriterLabels::Pointer writer = ImageWriterLabels::New();
+		writer->SetInput(labelMapToLabelImageFilter->GetOutput());
+		writer->SetFileName("LabelsAfterLargeBlogsRemoved.mha");
+		try {
+			writer->Update();
+		} catch(itk::ExceptionObject& e) {
+			std::cerr << __func__
+				<< ": writer->Update: ITK Exception caught: " << e << std::endl;
+			return false;
+		}
+	}
+#endif
+
 	// Keep just one object
 	//
 	std::clog << __func__ << ": Keeping just one object..." << std::endl;
@@ -110,15 +136,15 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 		itk::ShapeKeepNObjectsLabelMapFilter<LabelMap3DType>;
 	KeepNObjectsFilter::Pointer keepNObjectsFilter = KeepNObjectsFilter::New();
 	keepNObjectsFilter->SetInput(filterLowVolume->GetOutput());
-	keepNObjectsFilter->SetReverseOrdering(false);
+	keepNObjectsFilter->SetReverseOrdering(true);
 	const itk::SizeValueType maxNumObjects = 1;
 	keepNObjectsFilter->SetNumberOfObjects(maxNumObjects);
 	keepNObjectsFilter->SetAttribute(
-		KeepNObjectsFilter::LabelObjectType::NUMBER_OF_PIXELS);
+		KeepNObjectsFilter::LabelObjectType::NUMBER_OF_PIXELS_ON_BORDER);
 	try {
 		keepNObjectsFilter->Update();
 	}	catch (itk::ExceptionObject& e) {
-		std::cerr << __func__ 
+		std::cerr << __func__
 			<< ": keepNObjectsFilter->Update: ITK Exception caught: " << e
 			<< std::endl;
 		return false;
@@ -128,14 +154,14 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 		<< keepNObjectsFilter->GetNumberOfObjects() << std::endl;
 
 	using LabelMapToLabelImageFilterType =
-		itk::LabelMapToLabelImageFilter<LabelMap3DType, ImageLabels>;
+		itk::LabelMapToLabelImageFilter<LabelMap3DType, ImageBinary>;
 	LabelMapToLabelImageFilterType::Pointer labelMapToLabelImageFilter
 		= LabelMapToLabelImageFilterType::New();
 	labelMapToLabelImageFilter->SetInput(keepNObjectsFilter->GetOutput());
 	try {
 		labelMapToLabelImageFilter->Update();
 	}	catch (itk::ExceptionObject& e) {
-		std::cerr << __func__ 
+		std::cerr << __func__
 			<< ": labelMapToLabelImageFilter->Update: ITK Exception caught: " << e
 			<< std::endl;
 		return false;
@@ -146,7 +172,7 @@ FindLungs(const ImageCT& a_imgCT, ImageLabels::Pointer& a_imgLabels)
 	std::clog << __func__ << ": Connected component filtering..." << std::endl;
 
 	using ConnectedComponentImageFilterType =
-		itk::ConnectedComponentImageFilter <ImageLabels, ImageLabels>;
+		itk::ConnectedComponentImageFilter <ImageBinary, ImageBinary>;
 
 	ConnectedComponentImageFilterType::Pointer connected =
 		ConnectedComponentImageFilterType::New();
@@ -227,7 +253,7 @@ RemoveExternalStuffByFloodFilling(
 	RegionGrower::Pointer regionGrower = RegionGrower::New();
 	regionGrower->ReleaseDataFlagOn();
 	regionGrower->SetInput(a_imgCT);
-	const ImageCT::PixelType lowerThreshold = -1024; 
+	const ImageCT::PixelType lowerThreshold = -1024;
 	const ImageCT::PixelType upperThreshold = -200;
 	regionGrower->SetLower(lowerThreshold);
 	regionGrower->SetUpper(upperThreshold);
@@ -238,7 +264,7 @@ RemoveExternalStuffByFloodFilling(
 	try {
 		regionGrower->Update();
 	} catch (itk::ExceptionObject& e) {
-		std::cerr << __func__ 
+		std::cerr << __func__
 			<< ": regionGrower->Update: ITK Exception caught: " << e << std::endl;
 		return false;
 	}
@@ -293,28 +319,28 @@ RemoveExternalStuffByFloodFilling(
 	return true;
 }
 
-void 
-ComputeAndOutputBoundingBox(const ImageLabels& a_imgLabels)
+void
+ComputeAndOutputBoundingBox(const ImageBinary& a_imgLabels)
 {
-	using IteratorType = itk::ImageRegionConstIteratorWithIndex<ImageLabels>;
+	using IteratorType = itk::ImageRegionConstIteratorWithIndex<ImageBinary>;
 	IteratorType it(&a_imgLabels, a_imgLabels.GetRequestedRegion());
 
-	ImageLabels::IndexValueType iMin = 90000000;
-	ImageLabels::IndexValueType jMin = iMin, kMin = iMin;
-	ImageLabels::IndexValueType iMax = -2000000;
-	ImageLabels::IndexValueType jMax = iMax, kMax = iMax;
+	ImageBinary::IndexValueType iMin = 90000000;
+	ImageBinary::IndexValueType jMin = iMin, kMin = iMin;
+	ImageBinary::IndexValueType iMax = -2000000;
+	ImageBinary::IndexValueType jMax = iMax, kMax = iMax;
 	it.GoToBegin();
 
 	for (; !it.IsAtEnd(); ++it) {
 		const ImageLabels::PixelType value = it.Get();
 		if (value != 0) {
 			const ImageLabels::IndexType idx = it.GetIndex();
-			iMin = std::min<ImageLabels::IndexValueType>(iMin, idx[0]);
-			jMin = std::min<ImageLabels::IndexValueType>(jMin, idx[1]);
-			kMin = std::min<ImageLabels::IndexValueType>(kMin, idx[2]);
-			iMax = std::max<ImageLabels::IndexValueType>(iMax, idx[0]);
-			jMax = std::max<ImageLabels::IndexValueType>(jMax, idx[1]);
-			kMax = std::max<ImageLabels::IndexValueType>(kMax, idx[2]);
+			iMin = std::min<ImageBinary::IndexValueType>(iMin, idx[0]);
+			jMin = std::min<ImageBinary::IndexValueType>(jMin, idx[1]);
+			kMin = std::min<ImageBinary::IndexValueType>(kMin, idx[2]);
+			iMax = std::max<ImageBinary::IndexValueType>(iMax, idx[0]);
+			jMax = std::max<ImageBinary::IndexValueType>(jMax, idx[1]);
+			kMax = std::max<ImageBinary::IndexValueType>(kMax, idx[2]);
 		}
 	}
 
@@ -381,7 +407,7 @@ main(int argc, char* argv[])
 	//
 	std::clog << __func__ << ": Creating the image of labels..." << std::endl;
 
-	ImageLabels::Pointer imgLabels = ImageLabels::New();
+	ImageBinary::Pointer imgLabels = ImageBinary::New();
 	imgLabels->SetRegions(imageCT->GetLargestPossibleRegion());
 	imgLabels->CopyInformation(imageCT);
 	imgLabels->Allocate();
@@ -414,7 +440,7 @@ main(int argc, char* argv[])
 	//
 	std::clog << __func__ << ": Writing the output image..." << std::endl;
 
-	using WriterType = itk::ImageFileWriter<ImageLabels>;
+	using WriterType = itk::ImageFileWriter<ImageBinary>;
 	WriterType::Pointer writer = WriterType::New();
 	writer->SetFileName(filenameOutputLabels);
 	writer->SetInput(imgLabels);
