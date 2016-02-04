@@ -1,3 +1,5 @@
+Credit goes to Maria Izquierdo, who built the first complete implementation, and to Sergio Vera, for taking care of it.
+
 ### Reference material
 
 - Joris Heuberger, Antoine Geissbühler, and Henning Müller, _Lung CT segmentation for image retrieval_, 2005.
