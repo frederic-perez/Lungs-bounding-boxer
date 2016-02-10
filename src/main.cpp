@@ -20,7 +20,7 @@
 #include "aux-raw-compiler-warnings-off++end.h"
 
 using ImageCT = itk::Image<double, 3>;
-using ImageBinary = itk::Image<unsigned char,3>;
+using ImageBinary = itk::Image<unsigned char, 3>;
 using ImageLabels = itk::Image<size_t, 3>;
 
 bool
@@ -105,14 +105,18 @@ FindLungs(const ImageCT& a_imgCT, ImageBinary::Pointer& a_imgLabels)
 	std::clog << __func__ << ": #labels after small blobs removal: "
 		<< numLabels << std::endl;
 
-#undef _LABEL_DEBUGGING_
-#ifdef _LABEL_DEBUGGING_
+#undef LABEL_DEBUGGING_20160204
+#ifdef LABEL_DEBUGGING_20160204
 	using ImageWriterLabels = itk::ImageFileWriter<ImageLabels>;
-	if (numLabels < std::numeric_limits<ImageWriterLabels::InputImagePixelType>::max()) {
+	if (numLabels 
+			< std::numeric_limits<ImageWriterLabels::InputImagePixelType>::highest())
+	{
 		std::clog << __func__
 			<< ": Writting Intermediate Label Image" << std::endl;
-		using LabelMap2LabelImage = itk::LabelMapToLabelImageFilter<LabelMap3DType, ImageLabels>;
-		LabelMap2LabelImage::Pointer labelMapToLabelImageFilter = LabelMap2LabelImage::New();
+		using LabelMap2LabelImage =
+			itk::LabelMapToLabelImageFilter<LabelMap3DType, ImageLabels>;
+		LabelMap2LabelImage::Pointer labelMapToLabelImageFilter =
+			LabelMap2LabelImage::New();
 		labelMapToLabelImageFilter->SetInput(filterLowVolume->GetOutput());
 		//labelMapToLabelImageFilter->Update();
 		ImageWriterLabels::Pointer writer = ImageWriterLabels::New();
