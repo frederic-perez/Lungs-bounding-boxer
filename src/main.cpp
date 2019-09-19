@@ -1,5 +1,3 @@
-// --
-
 #include <iostream>
 #include <limits>
 #include <string>
@@ -411,5 +409,3 @@ main(int argc, char* argv[])
 
   return EXIT_SUCCESS;
 }
-
-// -- eof
