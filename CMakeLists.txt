@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(Lungs-bounding-boxer)
+set(PROJECT_NAME "Lungs-bounding-boxer")
+set(PROJECT_TYPE "CXX")
+project(${PROJECT_NAME} ${PROJECT_TYPE})
 
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
@@ -28,6 +30,9 @@ endif()
 message(STATUS "Your host name (MyHostname variable) is ${MyHostname}")
 set(def_CMAKE_MYHOSTNAME CMAKE_MYHOSTNAME=${MyHostname})
 message(STATUS "> def_CMAKE_MYHOSTNAME is ${def_CMAKE_MYHOSTNAME}")
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES "Windows")
   if(MSVC)
