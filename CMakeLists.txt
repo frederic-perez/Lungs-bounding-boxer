@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 set(PROJECT_NAME "Lungs-bounding-boxer")
 set(PROJECT_TYPE "CXX")
@@ -22,11 +22,7 @@ message(STATUS "Your username (MyUsername variable) is ${MyUsername}")
 set(def_CMAKE_MYUSERNAME CMAKE_MYUSERNAME=${MyUsername})
 message(STATUS "> def_CMAKE_MYUSERNAME is ${def_CMAKE_MYUSERNAME}")
 
-if(CMAKE_MAJOR_VERSION LESS 3)
-  SITE_NAME(MyHostname)
-else()
-  cmake_host_system_information(RESULT MyHostname QUERY HOSTNAME)
-endif()
+cmake_host_system_information(RESULT MyHostname QUERY HOSTNAME)
 message(STATUS "Your host name (MyHostname variable) is ${MyHostname}")
 set(def_CMAKE_MYHOSTNAME CMAKE_MYHOSTNAME=${MyHostname})
 message(STATUS "> def_CMAKE_MYHOSTNAME is ${def_CMAKE_MYHOSTNAME}")
