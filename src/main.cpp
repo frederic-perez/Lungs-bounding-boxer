@@ -2,7 +2,7 @@
 #include <limits>
 #include <string>
 
-#include "aux-raw-compiler-warnings-off++begin.h"
+#include "aux-raw-compiler-warnings-off++begin.hpp"
 // clang-format off
   #include <itkBinaryImageToShapeLabelMapFilter.h>
   #include <itkBinaryThresholdImageFilter.h>
@@ -15,7 +15,7 @@
   #include <itkShapeKeepNObjectsLabelMapFilter.h>
   #include <itkShapeOpeningLabelMapFilter.h>
 // clang-format on
-#include "aux-raw-compiler-warnings-off++end.h"
+#include "aux-raw-compiler-warnings-off++end.hpp"
 
 using ImageCT = itk::Image<double, 3>;
 using ImageBinary = itk::Image<unsigned char, 3>;

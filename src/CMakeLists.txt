@@ -44,7 +44,7 @@ endif ()
 
 
 set(SRC_LIST
-  aux-raw-compiler-warnings-off++begin.h aux-raw-compiler-warnings-off++end.h
+  aux-raw-compiler-warnings-off++begin.hpp aux-raw-compiler-warnings-off++end.hpp
   main.cpp
 )
 
